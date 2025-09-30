@@ -3,8 +3,6 @@ import asyncio
 import os
 from dotenv import load_dotenv
 from acm_agent import create_acm_agent
-from react_agent import create_react_acm_agent
-from langgraph_react_agent import create_langgraph_react_agent
 
 # Load environment variables
 load_dotenv()
@@ -97,39 +95,7 @@ def main():
 
     # Sidebar
     with st.sidebar:
-        st.header("⚙️ Configuration")
-
-        # API Key inputs
-        api_key = st.text_input(
-            "OpenAI API Key",
-            type="password",
-            value=os.getenv("OPENAI_API_KEY", ""),
-            help="Enter your OpenAI API key for GPT models"
-        )
-
-        claude_api_key = st.text_input(
-            "Claude API Key (Optional)",
-            type="password",
-            value=os.getenv("CLAUDE_API_KEY", ""),
-            help="Enter your Claude API key to use Claude models in REACT agent"
-        )
-
-        if not api_key and not claude_api_key:
-            st.markdown("""
-            <div class="warning-box">
-                <strong>⚠️ API Key Required</strong><br>
-                Please enter at least one API key to start using the assistant.
-            </div>
-            """, unsafe_allow_html=True)
-
-        # Agent Selection
-        agent_type = st.selectbox(
-            "🤖 Agent Type",
-            ["Linear Agent", "REACT Agent", "LangGraph REACT Agent"],
-            help="Choose between Linear (fast, simple), REACT (custom iterative), or LangGraph REACT (official implementation)"
-        )
-
-        st.markdown("---")
+        st.header("🔍 ACM Assistant")
 
         # Information section
         st.markdown("""
@@ -143,17 +109,28 @@ def main():
         </div>
         """, unsafe_allow_html=True)
 
-        # Model info
-        st.markdown("**Model:** GPT-4o")
-        st.markdown("**MCP Server:** ACM Search")
-        st.markdown(f"**Active Agent:** {agent_type}")
+        st.markdown("---")
 
-        if agent_type == "REACT Agent":
-            st.markdown("🔄 *Custom iterative implementation*")
-        elif agent_type == "LangGraph REACT Agent":
-            st.markdown("🏆 *Official LangGraph REACT*")
+        # Configuration info
+        model_name = os.getenv("MODEL_NAME", "gpt-4o")
+        model_provider = os.getenv("MODEL_PROVIDER", "openai")
+        st.markdown(f"**Model:** {model_provider.title()} {model_name}")
+        st.markdown("**MCP Server:** ACM Search")
+
+        # Check configuration status
+        has_api_key = bool(os.getenv("OPENAI_API_KEY"))
+        has_mcp_config = bool(os.getenv("MCP_SERVER_URL"))
+
+        if has_api_key and has_mcp_config:
+            st.markdown("✅ **Status:** Ready")
         else:
-            st.markdown("⚡ *Fast, linear execution*")
+            st.markdown("⚠️ **Status:** Configuration incomplete")
+            if not has_api_key:
+                st.markdown("- Missing OPENAI_API_KEY")
+            if not has_mcp_config:
+                st.markdown("- Missing MCP_SERVER_URL")
+
+        st.markdown("---")
 
         # Clear chat button
         if st.button("🗑️ Clear Chat", use_container_width=True):
@@ -166,41 +143,28 @@ def main():
 
     if "agent" not in st.session_state:
         st.session_state.agent = None
-        st.session_state.current_agent_type = None
 
-    # Initialize agent if API key is provided or agent type changed
-    agent_changed = st.session_state.current_agent_type != agent_type
-    has_api_key = api_key or claude_api_key
+    # Check if we have required configuration
+    has_api_key = bool(os.getenv("OPENAI_API_KEY"))
+    has_mcp_config = bool(os.getenv("MCP_SERVER_URL"))
+    has_config = has_api_key and has_mcp_config
 
-    if has_api_key and (st.session_state.agent is None or agent_changed):
-        agent_name = agent_type.replace(" ", "_").lower()
-        with st.spinner(f"🔧 Initializing {agent_type}..."):
+    # Initialize agent if configuration is available and agent not yet created
+    if has_config and st.session_state.agent is None:
+        with st.spinner("🔧 Initializing ACM Agent..."):
             try:
-                # Create agent asynchronously based on type
+                # Create agent using environment configuration
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-
-                if agent_type == "REACT Agent":
-                    # REACT agent now supports both OpenAI and Claude
-                    st.session_state.agent = loop.run_until_complete(create_react_acm_agent(api_key, claude_api_key))
-                elif agent_type == "LangGraph REACT Agent":
-                    st.session_state.agent = loop.run_until_complete(create_langgraph_react_agent(api_key))
-                else:  # Linear Agent
-                    st.session_state.agent = loop.run_until_complete(create_acm_agent(api_key))
-
-                st.session_state.current_agent_type = agent_type
-                st.success(f"✅ {agent_type} initialized successfully!")
-
-                # Clear messages when switching agents
-                if agent_changed:
-                    st.session_state.messages = []
+                st.session_state.agent = loop.run_until_complete(create_acm_agent())
+                st.success("✅ ACM Agent initialized successfully!")
 
             except Exception as e:
-                st.error(f"❌ Failed to initialize {agent_type}: {str(e)}")
+                st.error(f"❌ Failed to initialize agent: {str(e)}")
                 st.session_state.agent = None
 
     # Chat interface
-    if api_key:
+    if has_config:
         # Display chat history
         for message in st.session_state.messages:
             display_chat_message(message["role"], message["content"])
@@ -229,7 +193,7 @@ def main():
                         st.session_state.messages.append({"role": "assistant", "content": error_message})
                         display_chat_message("assistant", error_message)
             else:
-                error_message = "❌ Agent not initialized. Please check your API key and try again."
+                error_message = "❌ Agent not initialized. Please check your configuration."
                 st.session_state.messages.append({"role": "assistant", "content": error_message})
                 display_chat_message("assistant", error_message)
 
@@ -267,15 +231,25 @@ def main():
                 st.rerun()
 
     else:
-        # Show welcome message when no API key
+        # Show welcome message when configuration is missing
         st.markdown("""
         ### Welcome to ACM Search Assistant! 👋
 
         This intelligent assistant helps you search and explore your Red Hat Advanced Cluster Management environment.
 
+        **Configuration Required:**
+        """)
+
+        if not has_api_key:
+            st.markdown("❌ **OPENAI_API_KEY** environment variable not set")
+        if not has_mcp_config:
+            st.markdown("❌ **MCP_SERVER_URL** environment variable not set")
+
+        st.markdown("""
         **To get started:**
-        1. Enter your OpenAI API key in the sidebar
-        2. Start asking questions about your ACM resources
+        1. Set the required environment variables (see .env.example)
+        2. Restart the application
+        3. Start asking questions about your ACM resources
 
         **What you can search for:**
         - Clusters and their status
