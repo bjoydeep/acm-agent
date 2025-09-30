@@ -1,0 +1,124 @@
+# ACM Agent
+
+An intelligent chatbot for Red Hat Advanced Cluster Management (ACM) users that leverages LangGraph and MCP (Model Context Protocol) for searching and exploring ACM resources.
+
+## Features
+
+- 🤖 **LangGraph Agent** with GPT-4o integration
+- 🔍 **MCP Search Integration** for ACM resources
+- 💬 **Streamlit Chat Interface** with modern UI
+- 🎯 **Smart Query Routing** - automatically determines when to use search vs direct LLM
+- 📱 **Responsive Design** with example queries for easy start
+
+## Project Structure
+
+```
+acm-agent/
+├── src/                    # Source code
+│   ├── __init__.py        # Package marker
+│   ├── acm_agent.py       # LangGraph agent with MCP integration
+│   └── app.py             # Streamlit UI application
+├── requirements.txt       # Python dependencies
+├── .gitignore            # Git exclusions
+├── .env.example          # Environment variables template
+├── .acmagent/            # Virtual environment (auto-created)
+├── CLAUDE.md             # Project instructions
+├── run.py                # Alternative entry point
+└── README.md             # This file
+```
+
+## Prerequisites
+
+- Python 3.12+
+- OpenAI API key
+- ACM Search MCP Server running locally
+
+## Setup
+
+1. **Clone and navigate to the project:**
+   ```bash
+   cd acm-agent
+   ```
+
+2. **The virtual environment is already set up at `.acmagent/`**
+
+3. **Install dependencies:**
+   ```bash
+   .acmagent/bin/pip install -r requirements.txt
+   ```
+
+4. **Set up environment variables:**
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your OpenAI API key
+   ```
+
+## Running the Application
+
+### Option 1: From src directory (Recommended)
+```bash
+cd src
+../.acmagent/bin/streamlit run app.py
+```
+
+### Option 2: Using the entry point
+```bash
+.acmagent/bin/python run.py
+```
+
+The application will be available at:
+- **Local:** http://localhost:8501
+- **Network:** http://192.168.0.195:8501
+
+## Usage
+
+1. **Enter your OpenAI API key** in the sidebar
+2. **Start asking questions** about your ACM environment
+3. **Try example queries** or ask custom questions like:
+   - "List all clusters in my ACM environment"
+   - "Show me all policies"
+   - "Find applications deployed"
+   - "What is the status of my clusters?"
+
+## Configuration
+
+### Environment Variables
+
+Create a `.env` file with:
+
+```bash
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4o          # Optional, defaults to gpt-4o
+OPENAI_TEMPERATURE=0.1       # Optional, defaults to 0.1
+```
+
+### MCP Server
+
+The agent expects an ACM Search MCP Server to be running locally. Refer to the [ACM MCP Server documentation](https://github.com/stolostron/acm-mcp-server/blob/main/servers/postgresql/k8s/README.md) for setup instructions.
+
+## Architecture
+
+- **LangGraph**: Orchestrates the conversation flow and tool usage
+- **MCP Integration**: Connects to ACM Search server for resource queries
+- **GPT-4o**: Provides natural language understanding and generation
+- **Streamlit**: Modern web UI for chat interactions
+
+## Development
+
+To extend the agent:
+
+1. **Add new MCP tools** in `src/acm_agent.py`
+2. **Modify the UI** in `src/app.py`
+3. **Update query routing logic** in the `should_use_search()` method
+
+## Troubleshooting
+
+- **"MCP session not available"**: Ensure the ACM Search MCP Server is running
+- **Import errors**: Make sure you're running from the correct directory
+- **API errors**: Verify your OpenAI API key is valid and has sufficient credits
+
+## Contributing
+
+1. Follow the existing code structure
+2. Update this README for any new features
+3. Test thoroughly with the MCP server integration
