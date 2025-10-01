@@ -67,11 +67,19 @@ class ACMSearchAgent:
         self.model_with_tools = None
         self.tool_node = None
         self.graph = None
+        self.system_prompt = None  # Cache the system prompt
 
     async def setup_mcp_connection(self):
         """Set up connection to MCP server and get available tools"""
         try:
             print(f"🔧 Initializing {self.config.model_provider} model: {self.config.model_name}")
+
+            # Load and cache the system prompt (only once during initialization)
+            self.system_prompt = self.load_system_prompt()
+            print("📝 === LOADED SYSTEM PROMPT ===")
+            print(self.system_prompt)
+            print("📝 === END SYSTEM PROMPT ===")
+
             # Initialize the model using configuration
             self.llm = init_chat_model(
                 self.config.get_model_string(),
@@ -164,6 +172,10 @@ class ACMSearchAgent:
         SELECT jsonb_pretty(data) FROM search.resources WHERE data->>'kind' = 'ResourceType' LIMIT 1;
         """
 
+    def get_loaded_system_prompt(self):
+        """Get the currently loaded system prompt for debugging/display purposes"""
+        return self.system_prompt or self.load_system_prompt()
+
     def should_continue(self, state: MessagesState):
         """Determine if we should continue to tools or end"""
         messages = state["messages"]
@@ -177,9 +189,8 @@ class ACMSearchAgent:
         """Call the model with current state"""
         messages = state["messages"]
 
-        # Add system message for ACM context
-        system_prompt = self.load_system_prompt()
-        system_msg = SystemMessage(content=system_prompt)
+        # Add system message for ACM context (use cached prompt)
+        system_msg = SystemMessage(content=self.system_prompt)
 
         # Insert system message at the beginning if not already there
         if not messages or not isinstance(messages[0], SystemMessage):

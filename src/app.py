@@ -74,6 +74,39 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+def get_current_user():
+    """Get authenticated user info from OAuth proxy headers"""
+    print("🔍 [AUTH] Checking for user authentication headers...")
+
+    # In production with OAuth proxy, these headers are set automatically
+    # In development, they might not exist
+    try:
+        # Try to get headers from Streamlit context
+        headers = st.context.headers if hasattr(st.context, 'headers') else {}
+        print(f"🔍 [AUTH] Available headers: {list(headers.keys()) if headers else 'None'}")
+
+        # OAuth proxy uses X-Forwarded-* headers
+        user = headers.get('X-Forwarded-User', headers.get('X-Remote-User', os.getenv('DEV_USER', 'anonymous')))
+        groups_raw = headers.get('X-Forwarded-Group', headers.get('X-Remote-Group', os.getenv('DEV_GROUPS', '')))
+
+        print(f"🔍 [AUTH] Extracted User: {user}")
+        print(f"🔍 [AUTH] Extracted Groups: {groups_raw}")
+
+        # Clean up groups list
+        groups = [g.strip() for g in groups_raw.split(',') if g.strip()]
+
+        print(f"✅ [AUTH] Authenticated user: {user}")
+        print(f"✅ [AUTH] User groups: {groups}")
+
+        return user, groups
+    except Exception as e:
+        print(f"⚠️ [AUTH] Error reading headers: {e}")
+        # Fallback for development
+        fallback_user = os.getenv('DEV_USER', 'dev-user')
+        fallback_groups = ['system:authenticated']
+        print(f"🔄 [AUTH] Using fallback - User: {fallback_user}, Groups: {fallback_groups}")
+        return fallback_user, fallback_groups
+
 def display_chat_message(role: str, content: str):
     """Display a chat message with styling"""
     avatar = "👤" if role == "user" else "🤖"
@@ -96,6 +129,29 @@ def main():
     # Sidebar
     with st.sidebar:
         st.header("🔍 ACM Assistant")
+
+        # Get current user info
+        user, groups = get_current_user()
+
+        # User info section
+        st.markdown("### 👤 User Information")
+        st.markdown(f"**User:** {user}")
+
+        # Show groups (limit to avoid clutter)
+        if groups and groups != ['']:
+            groups_display = groups[:3]  # Show first 3 groups
+            groups_text = ", ".join(groups_display)
+            if len(groups) > 3:
+                groups_text += f" (+{len(groups)-3} more)"
+            st.markdown(f"**Groups:** {groups_text}")
+
+            # Optional: Role-based features
+            if any(group in ['acm-admins', 'cluster-admins', 'system:admin'] for group in groups):
+                st.markdown("🔧 **Admin features enabled**")
+        else:
+            st.markdown("**Groups:** None")
+
+        st.markdown("---")
 
         # Information section
         st.markdown("""
@@ -165,6 +221,9 @@ def main():
 
     # Chat interface
     if has_config:
+        # Information about chat behavior
+        st.info("💬 **Note:** Each query is processed independently - conversation history is not maintained between questions.")
+
         # Display chat history
         for message in st.session_state.messages:
             display_chat_message(message["role"], message["content"])
@@ -226,9 +285,31 @@ def main():
                 example_query = st.session_state.example_query
                 del st.session_state.example_query
 
-                # Add to messages and process
+                # Add user message to history
                 st.session_state.messages.append({"role": "user", "content": example_query})
-                st.rerun()
+                display_chat_message("user", example_query)
+
+                # Process with agent
+                if st.session_state.agent:
+                    with st.spinner("🤔 Thinking..."):
+                        try:
+                            # Get response from agent
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            response = loop.run_until_complete(st.session_state.agent.chat(example_query))
+
+                            # Add assistant response to history
+                            st.session_state.messages.append({"role": "assistant", "content": response})
+                            display_chat_message("assistant", response)
+
+                        except Exception as e:
+                            error_message = f"❌ Error: {str(e)}"
+                            st.session_state.messages.append({"role": "assistant", "content": error_message})
+                            display_chat_message("assistant", error_message)
+                else:
+                    error_message = "❌ Agent not initialized. Please check your configuration."
+                    st.session_state.messages.append({"role": "assistant", "content": error_message})
+                    display_chat_message("assistant", error_message)
 
     else:
         # Show welcome message when configuration is missing

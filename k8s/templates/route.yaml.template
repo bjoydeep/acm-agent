@@ -1,0 +1,19 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: acm-agent
+  namespace: acm-agent
+  labels:
+    app: acm-agent
+spec:
+  # host: acm-agent.apps.YOUR-CLUSTER-DOMAIN  # Uncomment and replace with your cluster domain, or leave commented for auto-assignment
+  to:
+    kind: Service
+    name: acm-agent
+    weight: 100
+  port:
+    targetPort: oauth-proxy
+  tls:
+    termination: reencrypt
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

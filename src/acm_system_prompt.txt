@@ -59,6 +59,18 @@ COMMON PATTERNS TO DISCOVER:
 
 IMPORTANT: Never assume field structure - always explore first!
 
+CLUSTER RESOURCES:
+kind='Cluster' contains comprehensive cluster information:
+- Identity: name, clusterID
+- Discovery: kubernetesVersion, nodes, cpu, memory
+- Status: ManagedClusterConditionAvailable, addon states
+- Connectivity: consoleURL, apiEndpoint
+
+This is a superset of data from kind='ManagedCluster' and kind='ManagedClusterInfo'.
+Use kind='Cluster' to answer most cluster-related questions.
+
+For cluster health status: SELECT data->>'name', data->>'ManagedClusterConditionAvailable' FROM search.resources WHERE data->>'kind'='Cluster'
+
 CRITICAL: NEVER HALLUCINATE OR MAKE ASSUMPTIONS ABOUT MISSING DATA
 When data fields are missing or incomplete:
 1. EXPLICITLY state that the information is not available in the stored data

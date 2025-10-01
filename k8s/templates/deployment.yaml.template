@@ -1,0 +1,150 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acm-agent
+  namespace: acm-agent
+  labels:
+    app: acm-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: acm-agent
+  template:
+    metadata:
+      labels:
+        app: acm-agent
+    spec:
+      serviceAccountName: acm-agent
+      containers:
+
+      # OAuth Proxy Container - Handles authentication
+      - name: oauth-proxy
+        image: quay.io/openshift/origin-oauth-proxy:4.12
+        args:
+        - --provider=openshift
+        - --https-address=:8443
+        - --http-address=
+        - --upstream=http://localhost:8501
+        - --cookie-secret-file=/etc/proxy/secrets/session_secret
+        - --tls-cert=/etc/tls/private/tls.crt
+        - --tls-key=/etc/tls/private/tls.key
+        - --openshift-service-account=acm-agent
+        - --openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        - --skip-auth-regex=^/healthz
+        - --email-domain=*
+        - --upstream-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        - --openshift-delegate-urls={"/":{"resource":"namespaces","verb":"get","resourceName":"acm-agent","namespace":"acm-agent"}}
+        ports:
+        - containerPort: 8443
+          name: oauth-proxy
+          protocol: TCP
+        resources:
+          limits:
+            memory: 256Mi
+            cpu: 200m
+          requests:
+            memory: 128Mi
+            cpu: 100m
+        volumeMounts:
+        - name: secret-proxy
+          mountPath: /etc/proxy/secrets
+          readOnly: true
+        - name: tls
+          mountPath: /etc/tls/private
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 30
+          timeoutSeconds: 1
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+
+      # Streamlit App Container - Your ACM Agent
+      - name: streamlit-app
+        image: YOUR_REGISTRY/acm-agent:latest  # Replace with your container registry and image
+        ports:
+        - containerPort: 8501
+          name: streamlit
+          protocol: TCP
+        env:
+        # LLM Configuration
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: acm-agent-secrets
+              key: openai-api-key
+        - name: MODEL_PROVIDER
+          valueFrom:
+            configMapKeyRef:
+              name: acm-agent-config
+              key: model-provider
+        - name: MODEL_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: acm-agent-config
+              key: model-name
+        - name: MODEL_TEMPERATURE
+          valueFrom:
+            configMapKeyRef:
+              name: acm-agent-config
+              key: model-temperature
+
+        # MCP Configuration
+        - name: MCP_SERVER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: acm-agent-config
+              key: mcp-server-url
+        - name: MCP_TRANSPORT
+          valueFrom:
+            configMapKeyRef:
+              name: acm-agent-config
+              key: mcp-transport
+        - name: MCP_BEARER_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: acm-agent-secrets
+              key: mcp-bearer-token
+
+        # Development user info (for testing without OAuth proxy)
+        - name: DEV_USER
+          value: "dev-user@example.com"
+        - name: DEV_GROUPS
+          value: "system:authenticated,acm-users"
+
+        resources:
+          limits:
+            memory: 1Gi
+            cpu: 500m
+          requests:
+            memory: 512Mi
+            cpu: 250m
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8501
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8501
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+
+      volumes:
+      - name: secret-proxy
+        secret:
+          secretName: proxy-secret
+      - name: tls
+        secret:
+          secretName: acm-agent-tls

@@ -95,8 +95,17 @@ claude_*
 .credentials
 auth.json
 
+# Exception: Allow template files
+!k8s/templates/secret.yaml.template
+
 # Test outputs and generated files
 test_output/
 output/
 reports/
 *.pdf
+
+# Kubernetes working files (keep templates, ignore working configs)
+k8s/route.yaml
+k8s/secret.yaml
+k8s/configmap.yaml
+k8s/deployment.yaml

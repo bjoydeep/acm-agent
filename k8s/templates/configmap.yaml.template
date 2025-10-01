@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: acm-agent-config
+  namespace: acm-agent
+data:
+  # Model Configuration
+  model-provider: "openai"
+  model-name: "gpt-4o"
+  model-temperature: "0.01"
+
+  # MCP Server Configuration - REPLACE WITH YOUR MCP SERVER URL
+  mcp-server-url: "https://YOUR-MCP-SERVER-URL/sse"
+  mcp-transport: "sse"

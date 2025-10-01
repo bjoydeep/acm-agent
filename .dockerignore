@@ -1,0 +1,67 @@
+# Git
+.git
+.gitignore
+
+# Virtual environment
+.acmagent/
+venv/
+env/
+ENV/
+
+# Environment files (use .env.example instead)
+.env
+.env.local
+.env.production
+.env.staging
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Documentation
+README.md
+CLAUDE.md
+
+# Kubernetes manifests
+k8s/
+
+# Backup files
+backup-*.md
+*.bak
+*.tmp
+*.temp
+
+# Claude Code
+.claude/
+claude_*
+
+# Test files
+test_*
+tests/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
